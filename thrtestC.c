@@ -1,5 +1,5 @@
 /* thread user library functions */
-
+/*
 #include "types.h"
 #include "user.h"
 
@@ -66,4 +66,4 @@ void worker(void *arg_ptr) {
   lock_release(&xlock);
 
   exit();
-}
+} */
