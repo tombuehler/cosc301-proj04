@@ -82,6 +82,8 @@ userinit(void)
   extern char _binary_initcode_start[], _binary_initcode_size[];
   
   p = allocproc();
+  p->flag = 0;
+
   initproc = p;
   if((p->pgdir = setupkvm()) == 0)
     panic("userinit: out of memory?");
@@ -130,11 +132,12 @@ fork(void)
 {
   int i, pid;
   struct proc *np;
+  
 
   // Allocate process.
   if((np = allocproc()) == 0)
     return -1;
-
+  np->flag = 0; //ADDED FLAG
   // Copy process state from p.
   if((np->pgdir = copyuvm(proc->pgdir, proc->sz)) == 0){
     kfree(np->kstack);
@@ -145,7 +148,7 @@ fork(void)
   np->sz = proc->sz;
   np->parent = proc;
   *np->tf = *proc->tf;
-
+  
   // Clear %eax so that fork returns 0 in the child.
   np->tf->eax = 0;
 
@@ -463,4 +466,71 @@ procdump(void)
     }
     cprintf("\n");
   }
+}
+
+int
+clone(void(*fcn)(void*), void *arg, void *stack)
+{
+  int i, pid;
+  struct proc *nt;
+  
+  
+  // Allocate process.
+  if((nt = allocproc()) == 0) //LINE 35
+    return -1;
+  nt->flag = 1;
+  
+  // Copy process state from p.
+  if((nt->pgdir = copyuvm(proc->pgdir, proc->sz)) == 0){
+    kfree(nt->kstack);
+    nt->kstack = 0;
+    nt->state = UNUSED;
+    return -1;
+  }
+  nt->sz = proc->sz;
+  nt->parent = proc;
+  *nt->tf = *proc->tf;
+
+  // Clear %eax so that fork returns 0 in the child.
+  nt->tf->eax = 0;
+
+  for(i = 0; i < NOFILE; i++)
+    if(proc->ofile[i])
+      nt->ofile[i] = filedup(proc->ofile[i]);
+  nt->cwd = idup(proc->cwd);
+
+  safestrcpy(nt->name, proc->name, sizeof(proc->name));
+ 
+  pid = nt->pid;
+
+  // lock to force the compiler to emit the nt->state write last.
+
+  acquire(&ptable.lock);
+  // temporary array to copy into the bottom of new stack 
+  // for the thread (i.e., to the high address in stack
+  // page, since the stack grows downward)
+  uint ustack[2];
+  uint sp = (uint)stack+PGSIZE;
+  ustack[0] = 0xffffffff; // fake return PC
+  ustack[1] = (uint)arg;
+
+  sp -= 8; // stack grows down by 2 ints/8 bytes
+  if (copyout(nt->pgdir, sp, ustack, 8) < 0) {
+    // failed to copy bottom of stack into new task
+    return -1;
+  }
+  nt->tf->eip = (uint)fcn;
+  nt->tf->esp = sp;
+  switchuvm(nt);
+  nt->state = RUNNABLE;
+  
+  release(&ptable.lock);
+  
+  return pid;
+}
+
+int
+join(int pid)
+{
+    return 0;
 }

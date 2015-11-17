@@ -1,4 +1,5 @@
 /* thread user library functions */
+
 #include "types.h"
 #include "user.h"
 
@@ -83,4 +84,4 @@ void worker(void *arg_ptr) {
   global += 1;
   lock_release(&xlock);
   exit();
-}
+} 

@@ -118,6 +118,10 @@ void            userinit(void);
 int             wait(void);
 void            wakeup(void*);
 void            yield(void);
+int             clone(void(*fcn)(void*), void*, void*); //ADDED
+//void            do_clone(void);
+int             join(int);
+//void            do_memdump(struct proc *);
 
 // swtch.S
 void            swtch(struct context**, struct context*);
